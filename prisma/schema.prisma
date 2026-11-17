@@ -59,13 +59,16 @@ model Device {
   installationId  String
   platform        String
   appVersion      String
+  deviceName      String?
   lastSeenAt      DateTime
+  revokedAt       DateTime?
   createdAt       DateTime  @default(now())
 
   store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
   @@unique([storeId, installationId])
   @@index([storeId, lastSeenAt])
+  @@index([storeId, revokedAt])
   @@index([lastSeenAt])
 }
 
@@ -84,12 +87,13 @@ model Session {
 }
 
 model Store {
-  id        String      @id @default(cuid())
-  name      String
-  ownerId   String
-  status    StoreStatus @default(ACTIVE)
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  id                 String      @id @default(cuid())
+  name               String
+  ownerId            String
+  status             StoreStatus @default(ACTIVE)
+  lastDeviceChangeAt DateTime?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
 
   owner    Account       @relation("StoreOwner", fields: [ownerId], references: [id])
   members  StoreMember[]

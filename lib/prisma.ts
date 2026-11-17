@@ -28,10 +28,19 @@ const isConnectionError = (error: unknown) => {
 };
 
 function createClient() {
+  const defaultPoolMax = process.env.VERCEL ? 1 : 10;
+  const configuredPoolMax = Number.parseInt(process.env.DATABASE_POOL_MAX ?? "", 10);
+  const poolMax = Number.isFinite(configuredPoolMax) && configuredPoolMax > 0
+    ? configuredPoolMax
+    : defaultPoolMax;
+
   const pool = new pg.Pool({
     connectionString: process.env.DATABASE_URL,
-    max: 10,
-    idleTimeoutMillis: 15000,
+    // Vercel dapat menjalankan beberapa instance serverless. Supabase
+    // session pooler hanya punya pool_size terbatas, jadi jangan membuka
+    // banyak koneksi dari setiap instance.
+    max: poolMax,
+    idleTimeoutMillis: process.env.VERCEL ? 5000 : 15000,
     connectionTimeoutMillis: 15000,
     keepAlive: true,
     keepAliveInitialDelayMillis: 10000,
