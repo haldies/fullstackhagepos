@@ -6,8 +6,6 @@ import { getWritableMembership } from "@/lib/stores";
 import { error, json, parseJsonBody, zodError } from "@/lib/http";
 import { limitByAccount, tooManyRequests } from "@/lib/rateLimit";
 
-const MAX_DEVICES_PER_STORE = 50;
-
 const bodySchema = z.object({
   storeId: z.string().min(1).max(191),
   installationId: z.string().min(1).max(128),
@@ -33,18 +31,8 @@ export async function POST(request: NextRequest) {
     return error("Toko tidak ditemukan atau sedang ditangguhkan", 404);
   }
 
-  const existing = await prisma.device.findUnique({
-    where: { storeId_installationId: { storeId, installationId } },
-    select: { id: true },
-  });
-
-  if (!existing) {
-    const deviceCount = await prisma.device.count({ where: { storeId } });
-    if (deviceCount >= MAX_DEVICES_PER_STORE) {
-      return error(`Maksimal ${MAX_DEVICES_PER_STORE} device per toko`, 429);
-    }
-  }
-
+  // Satu HP = satu installationId stabil (Android ID). Tidak ada batas
+  // jumlah instalasi arbitrer; device yang sama akan di-upsert.
   const now = new Date();
   await prisma.device.upsert({
     where: { storeId_installationId: { storeId, installationId } },
