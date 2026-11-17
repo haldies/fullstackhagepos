@@ -12,7 +12,7 @@ type Context = { params: Promise<{ id: string; memberId: string }> };
 const schema = z.object({
   role: z.enum(["OWNER", "CASHIER"]).optional(),
   staffUsername: z.string().trim().min(3).max(40).nullable().optional(),
-  pin: z.string().regex(/^\d{6}$/).optional(),
+  pin: z.string().regex(/^\d{6}$/).nullable().optional(),
   lockedFeatures: z.array(z.string().max(80)).max(80).optional(),
   accessEnabled: z.boolean().optional(),
 });
@@ -65,9 +65,11 @@ export async function PATCH(request: NextRequest, { params }: Context) {
       ...(parsed.data.staffUsername !== undefined
         ? { staffUsername: parsed.data.staffUsername }
         : {}),
-      ...(parsed.data.pin
-        ? { pinHash: hashPin(parsed.data.pin), lastPinChangedAt: new Date() }
-        : {}),
+      ...(parsed.data.pin === null
+        ? { pinHash: null, lastPinChangedAt: new Date() }
+        : parsed.data.pin
+          ? { pinHash: hashPin(parsed.data.pin), lastPinChangedAt: new Date() }
+          : {}),
       ...(parsed.data.lockedFeatures ? { lockedFeatures: parsed.data.lockedFeatures } : {}),
       ...(parsed.data.accessEnabled !== undefined
         ? { accessEnabled: parsed.data.accessEnabled }
