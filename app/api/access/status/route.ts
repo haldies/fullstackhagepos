@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { requireAccount } from "@/lib/session";
 import { error, json } from "@/lib/http";
 import { limitByAccount, tooManyRequests } from "@/lib/rateLimit";
+import { hasOnlineAccess } from "@/lib/stores";
+import { hasStoreOnlineAccess } from "@/lib/storeAccess";
 
 export async function GET(request: NextRequest) {
   const account = await requireAccount(request);
@@ -36,12 +38,16 @@ export async function GET(request: NextRequest) {
 
   if (!member) return error("Akun ini belum terhubung ke toko", 404);
 
+  const onlineActive =
+    hasOnlineAccess(account) || (await hasStoreOnlineAccess(member.storeId));
+
   return json({
     storeId: member.storeId,
     storeName: member.store.name,
     role: member.role,
     accessManagementEnabled: member.store.accessManagementEnabled,
     accessEnabled: member.accessEnabled,
+    onlineActive,
     staffUsername: member.staffUsername,
     hasPin: Boolean(member.pinHash),
     lockedFeatures: member.lockedFeatures,
