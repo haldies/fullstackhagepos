@@ -13,11 +13,11 @@ import {
   MAX_ENTITY_BYTES,
   MAX_FUTURE_SKEW_MS,
   MAX_SYNC_ENTITIES,
- OWNER_ONLY_KINDS,
   jsonByteSize,
   validateEntityData,
   type EntityKind,
 } from "@/lib/syncPolicy";
+import { SETTING_PERMISSION_MAP } from "@/lib/accessPolicy";
 
 const KINDS = ["product", "category", "transaction", "member", "setting"] as const;
 
@@ -60,15 +60,33 @@ export async function POST(request: NextRequest) {
   }
   if (entities.length === 0) return json({ accepted: 0, skipped: 0 });
 
-  // Role CASHIER hanya boleh mengirim transaksi. Produk, kategori, setting,
-  // dan member (termasuk PII) hanya boleh diubah oleh OWNER.
-  if (
-    membership.role !== "OWNER" &&
-    entities.some((entity) => (OWNER_ONLY_KINDS as readonly string[]).includes(entity.kind))
-  ) {
-    return error("Hanya owner yang boleh mengubah data ini", 403);
+  const store = await prisma.store.findUnique({
+    where: { id: storeId },
+    select: { accessManagementEnabled: true },
+  });
+  const isOwner = membership.role === "OWNER";
+  const permissionsEnabled = isOwner || Boolean(store?.accessManagementEnabled);
+  const locked = new Set(membership.lockedFeatures ?? []);
+
+  // Izin menu per karyawan ikut menentukan entity yang boleh dipush.
+  // Tanpa manajemen akses, karyawan hanya boleh transaksi & member (poin).
+  for (const entity of entities) {
+    if (isOwner) continue;
+    if (entity.kind === "transaction" || entity.kind === "member") continue;
+    if (!permissionsEnabled) {
+      return error("Hanya owner yang boleh mengubah data ini", 403);
+    }
+    if (entity.kind === "product" && !locked.has("products")) continue;
+    if (entity.kind === "category" && !locked.has("categories")) continue;
+    if (entity.kind === "setting") {
+      const permission = SETTING_PERMISSION_MAP[entity.clientId];
+      if (permission && !locked.has(permission)) continue;
+    }
+    return error("Karyawan tidak punya izin untuk mengubah data ini", 403);
   }
 
+  // Kasir boleh membuat member baru / update poin, tapi tidak boleh
+  // mengubah identitas member yang sudah ada atau menghapusnya.
   const now = Date.now();
   for (const entity of entities) {
     if (entity.updatedAt > now + MAX_FUTURE_SKEW_MS) {

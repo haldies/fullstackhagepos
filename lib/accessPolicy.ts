@@ -12,3 +12,11 @@ export const DEFAULT_CASHIER_LOCKED_FEATURES = [
   "transaction-void",
   "transaction-delete",
 ] as const;
+
+/** Setting sync key → izin menu yang mengaturnya. */
+export const SETTING_PERMISSION_MAP: Record<string, string> = {
+  storeProfile: "store-profile",
+  receiptSettings: "printer",
+  cartSettings: "cart-settings",
+  inventorySettings: "products",
+};

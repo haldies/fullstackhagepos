@@ -5,6 +5,7 @@ import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { requireAccount } from "@/lib/session";
 import { getWritableMembership } from "@/lib/stores";
+import { hasStoreFeature } from "@/lib/storeAccess";
 import { R2_BUCKET, isR2Configured, r2 } from "@/lib/r2";
 import { error, json, parseJsonBody, zodError } from "@/lib/http";
 import { limitByAccount, tooManyRequests } from "@/lib/rateLimit";
@@ -50,9 +51,12 @@ export async function POST(request: NextRequest) {
     return error("Toko tidak ditemukan atau sedang ditangguhkan", 404);
   }
 
-  // QRIS & logo toko hanya boleh diubah owner (mencegah kasir mengganti QRIS).
-  if (membership.role !== "OWNER" && (kind === "store" || kind === "qris")) {
-    return error("Hanya owner yang boleh mengganti gambar toko/QRIS", 403);
+  // Logo toko & QRIS mengikuti izin Manajemen Akses; owner selalu boleh.
+  if (kind === "store" && !(await hasStoreFeature(account.id, storeId, "store-profile"))) {
+    return error("Tidak punya izin mengganti gambar toko", 403);
+  }
+  if (kind === "qris" && !(await hasStoreFeature(account.id, storeId, "qris-settings"))) {
+    return error("Tidak punya izin mengganti gambar QRIS", 403);
   }
 
   // Prefix `tmp/` dibersihkan otomatis oleh lifecycle R2 jika tidak dikonfirmasi.

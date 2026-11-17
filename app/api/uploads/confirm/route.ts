@@ -8,6 +8,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { requireAccount } from "@/lib/session";
 import { getWritableMembership } from "@/lib/stores";
+import { hasStoreFeature } from "@/lib/storeAccess";
 import { R2_BUCKET, R2_PUBLIC_BASE_URL, isR2Configured, r2 } from "@/lib/r2";
 import { error, json, parseJsonBody, zodError } from "@/lib/http";
 import { limitByAccount, tooManyRequests } from "@/lib/rateLimit";
@@ -73,8 +74,11 @@ export async function POST(request: NextRequest) {
   const [, storeId, kind, uuid] = match;
   const membership = await getWritableMembership(account.id, storeId);
   if (!membership) return error("Tidak punya akses ke gambar ini", 404);
-  if (membership.role !== "OWNER" && (kind === "store" || kind === "qris")) {
-    return error("Hanya owner yang boleh mengganti gambar toko/QRIS", 403);
+  if (kind === "store" && !(await hasStoreFeature(account.id, storeId, "store-profile"))) {
+    return error("Tidak punya izin mengganti gambar toko", 403);
+  }
+  if (kind === "qris" && !(await hasStoreFeature(account.id, storeId, "qris-settings"))) {
+    return error("Tidak punya izin mengganti gambar QRIS", 403);
   }
 
   let head;

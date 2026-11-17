@@ -13,6 +13,26 @@ export async function hasStoreOnlineAccess(storeId: string) {
   return active(store.owner.onlineActive, store.owner.onlineExpiresAt);
 }
 
+/** Cek izin fitur toko untuk karyawan; owner selalu boleh. */
+export async function hasStoreFeature(
+  accountId: string,
+  storeId: string,
+  feature: string,
+) {
+  const member = await prisma.storeMember.findUnique({
+    where: { storeId_accountId: { storeId, accountId } },
+    select: { role: true, lockedFeatures: true },
+  });
+  if (!member) return false;
+  if (member.role === "OWNER") return true;
+
+  const store = await prisma.store.findUnique({
+    where: { id: storeId },
+    select: { accessManagementEnabled: true },
+  });
+  return Boolean(store?.accessManagementEnabled) && !member.lockedFeatures.includes(feature);
+}
+
 /**
  * Karyawan mengikuti langganan toko. Jika akun punya langganan sendiri,
  * tetap diizinkan; kalau tidak, cek apakah salah satu toko yang diikuti
