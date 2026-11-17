@@ -1,0 +1,159 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum StoreRole {
+  OWNER
+  CASHIER
+}
+
+enum StoreStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+model Account {
+  id              String   @id @default(cuid())
+  googleSub       String   @unique
+  email           String   @unique
+  name            String?
+  avatarUrl       String?
+  isPlatformAdmin Boolean  @default(false)
+  scanCount       Int      @default(0)
+  proActive       Boolean  @default(false)
+  proExpiresAt    DateTime?
+  proCheckedAt    DateTime?
+  onlineActive    Boolean  @default(false)
+  onlineExpiresAt DateTime?
+  onlineCheckedAt DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  sessions    Session[]
+  memberships StoreMember[]
+  ownedStores Store[]      @relation("StoreOwner")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String
+  action     String
+  targetType String
+  targetId   String
+  meta       Json?
+  createdAt  DateTime @default(now())
+
+  @@index([targetId, createdAt])
+  @@index([createdAt])
+}
+
+model Device {
+  id              String    @id @default(cuid())
+  storeId         String
+  installationId  String
+  platform        String
+  appVersion      String
+  lastSeenAt      DateTime
+  createdAt       DateTime  @default(now())
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, installationId])
+  @@index([storeId, lastSeenAt])
+  @@index([lastSeenAt])
+}
+
+model Session {
+  id         String    @id @default(cuid())
+  accountId  String
+  tokenHash  String    @unique
+  deviceId   String?
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+}
+
+model Store {
+  id        String      @id @default(cuid())
+  name      String
+  ownerId   String
+  status    StoreStatus @default(ACTIVE)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  owner    Account       @relation("StoreOwner", fields: [ownerId], references: [id])
+  members  StoreMember[]
+  invites  StoreInvite[]
+  entities SyncEntity[]
+  devices  Device[]
+
+  @@index([ownerId])
+}
+
+model StoreMember {
+  id        String    @id @default(cuid())
+  storeId   String
+  accountId String
+  role      StoreRole @default(CASHIER)
+  createdAt DateTime  @default(now())
+
+  store   Store   @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, accountId])
+  @@index([accountId])
+}
+
+model StoreInvite {
+  id        String    @id @default(cuid())
+  storeId   String
+  email     String
+  role      StoreRole @default(CASHIER)
+  createdAt DateTime  @default(now())
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, email])
+  @@index([email])
+}
+
+model CatalogProduct {
+  id        String   @id @default(cuid())
+  sku       String
+  skuKey    String   @unique
+  name      String
+  brand     String?
+  category  String?
+  price     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([brand])
+  @@index([category])
+}
+
+model SyncEntity {
+  id        String    @id @default(cuid())
+  storeId   String
+  kind      String
+  clientId  String
+  data      Json
+  updatedAt DateTime
+  deletedAt DateTime?
+  syncedAt  DateTime  @default(now())
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, kind, clientId])
+  @@index([storeId, syncedAt])
+}
