@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAccount } from "@/lib/session";
 import { getWritableMembership, hasOnlineAccess } from "@/lib/stores";
+import { hasStoreOnlineAccess } from "@/lib/storeAccess";
 import { error, json } from "@/lib/http";
 import { limitByAccount, tooManyRequests } from "@/lib/rateLimit";
 import { ALLOWED_SETTING_KEYS } from "@/lib/syncPolicy";
@@ -11,15 +12,16 @@ const PAGE_SIZE = 500;
 export async function GET(request: NextRequest) {
   const account = await requireAccount(request);
   if (!account) return error("Belum login", 401);
-  if (!hasOnlineAccess(account)) {
-    return error("Sinkronisasi membutuhkan Langganan.", 403);
-  }
 
   const limit = limitByAccount(account.id, "sync-pull", 60, 60_000);
   if (!limit.ok) return tooManyRequests(limit.retryAfter);
 
   const storeId = request.nextUrl.searchParams.get("storeId");
   if (!storeId) return error("storeId wajib diisi", 422);
+
+  if (!hasOnlineAccess(account) && !(await hasStoreOnlineAccess(storeId))) {
+    return error("Sinkronisasi membutuhkan Langganan.", 403);
+  }
 
   const sinceParam = Number(request.nextUrl.searchParams.get("since") ?? "0");
   if (!Number.isFinite(sinceParam) || sinceParam < 0) return error("since tidak valid", 422);

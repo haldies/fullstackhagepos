@@ -5,6 +5,7 @@ import { requireAccount } from "@/lib/session";
 import { getMembership } from "@/lib/stores";
 import { error, json, parseJsonBody, zodError } from "@/lib/http";
 import { limitByAccount, tooManyRequests } from "@/lib/rateLimit";
+import { DEFAULT_CASHIER_LOCKED_FEATURES } from "@/lib/accessPolicy";
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -70,7 +71,14 @@ export async function POST(request: NextRequest, { params }: Context) {
   if (existingAccount) {
     const member = await prisma.storeMember.upsert({
       where: { storeId_accountId: { storeId, accountId: existingAccount.id } },
-      create: { storeId, accountId: existingAccount.id, role: parsed.data.role },
+      create: {
+        storeId,
+        accountId: existingAccount.id,
+        role: parsed.data.role,
+        lockedFeatures: parsed.data.role === "CASHIER"
+          ? [...DEFAULT_CASHIER_LOCKED_FEATURES]
+          : [],
+      },
       update: { role: parsed.data.role },
     });
     return json({ joined: true, memberId: member.id }, 201);

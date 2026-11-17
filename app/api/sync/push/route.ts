@@ -5,6 +5,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAccount } from "@/lib/session";
 import { getWritableMembership, hasOnlineAccess } from "@/lib/stores";
+import { hasStoreOnlineAccess } from "@/lib/storeAccess";
 import { error, json, parseJsonBody, zodError } from "@/lib/http";
 import { limitByAccount, tooManyRequests } from "@/lib/rateLimit";
 import {
@@ -39,9 +40,6 @@ const bodySchema = z.object({
 export async function POST(request: NextRequest) {
   const account = await requireAccount(request);
   if (!account) return error("Belum login", 401);
-  if (!hasOnlineAccess(account)) {
-    return error("Sinkronisasi membutuhkan Langganan.", 403);
-  }
 
   const limit = limitByAccount(account.id, "sync-push", 60, 60_000);
   if (!limit.ok) return tooManyRequests(limit.retryAfter);
@@ -56,6 +54,9 @@ export async function POST(request: NextRequest) {
   const membership = await getWritableMembership(account.id, storeId);
   if (!membership) {
     return error("Toko tidak ditemukan atau sedang ditangguhkan", 404);
+  }
+  if (!hasOnlineAccess(account) && !(await hasStoreOnlineAccess(storeId))) {
+    return error("Sinkronisasi membutuhkan Langganan.", 403);
   }
   if (entities.length === 0) return json({ accepted: 0, skipped: 0 });
 

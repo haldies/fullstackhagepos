@@ -5,6 +5,7 @@ import { verifyGoogleIdToken } from "@/lib/google";
 import { createSession, SESSION_COOKIE } from "@/lib/session";
 import { error, json, parseJsonBody, zodError } from "@/lib/http";
 import { limitByIp, tooManyRequests } from "@/lib/rateLimit";
+import { DEFAULT_CASHIER_LOCKED_FEATURES } from "@/lib/accessPolicy";
 
 const bodySchema = z.object({
   idToken: z.string().min(1).max(10_000),
@@ -77,6 +78,9 @@ export async function POST(request: NextRequest) {
           storeId: invite.storeId,
           accountId: account.id,
           role: invite.role,
+          lockedFeatures: invite.role === "CASHIER"
+            ? [...DEFAULT_CASHIER_LOCKED_FEATURES]
+            : [],
         })),
         skipDuplicates: true,
       }),

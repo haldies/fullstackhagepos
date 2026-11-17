@@ -87,13 +87,14 @@ model Session {
 }
 
 model Store {
-  id                 String      @id @default(cuid())
-  name               String
-  ownerId            String
-  status             StoreStatus @default(ACTIVE)
-  lastDeviceChangeAt DateTime?
-  createdAt          DateTime    @default(now())
-  updatedAt          DateTime    @updatedAt
+  id                    String      @id @default(cuid())
+  name                  String
+  ownerId               String
+  status                StoreStatus @default(ACTIVE)
+  accessManagementEnabled Boolean   @default(false)
+  lastDeviceChangeAt    DateTime?
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
 
   owner    Account       @relation("StoreOwner", fields: [ownerId], references: [id])
   members  StoreMember[]
@@ -105,16 +106,22 @@ model Store {
 }
 
 model StoreMember {
-  id        String    @id @default(cuid())
-  storeId   String
-  accountId String
-  role      StoreRole @default(CASHIER)
-  createdAt DateTime  @default(now())
+  id              String    @id @default(cuid())
+  storeId         String
+  accountId       String
+  role            StoreRole @default(CASHIER)
+  staffUsername   String?
+  pinHash         String?
+  lockedFeatures  String[]  @default([])
+  accessEnabled   Boolean   @default(true)
+  lastPinChangedAt DateTime?
+  createdAt       DateTime  @default(now())
 
   store   Store   @relation(fields: [storeId], references: [id], onDelete: Cascade)
   account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@unique([storeId, accountId])
+  @@unique([storeId, staffUsername])
   @@index([accountId])
 }
 

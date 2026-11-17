@@ -4,6 +4,7 @@ import { requireAccount } from "@/lib/session";
 import { error, json } from "@/lib/http";
 import { limitByAccount } from "@/lib/rateLimit";
 import { consumeScanQuota } from "@/lib/scanQuota";
+import { hasAnyStoreOnlineAccess } from "@/lib/storeAccess";
 
 // Batas scan per akun. Cukup longgar untuk input produk, tetapi membatasi bot.
 const SCAN_LIMIT_PER_MINUTE = 60;
@@ -31,7 +32,12 @@ export async function GET(request: NextRequest) {
   if (!sku) return error("sku wajib diisi", 422);
   if (sku.length > 191) return error("sku terlalu panjang", 422);
 
-  const quota = await consumeScanQuota(account);
+  const storeOnline = await hasAnyStoreOnlineAccess(account);
+  const quota = await consumeScanQuota(
+    storeOnline
+      ? { ...account, onlineActive: true, onlineExpiresAt: null }
+      : account,
+  );
   if (!quota.allowed) {
     return error(
       `Kuota scan gratis habis (${quota.limit} scan). Langganan untuk scan tanpa batas.`,
