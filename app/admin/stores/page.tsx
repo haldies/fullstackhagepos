@@ -21,14 +21,20 @@ async function StoresTable() {
       orderBy: { createdAt: "desc" },
       include: {
         owner: { select: { email: true } },
-        _count: { select: { members: true, devices: true } },
+        _count: { select: { members: true } },
       },
     }),
-    prisma.device.groupBy({ by: ["storeId"], _max: { lastSeenAt: true } }),
+    prisma.device.groupBy({
+      by: ["storeId"],
+      where: { revokedAt: null },
+      _max: { lastSeenAt: true },
+      _count: { _all: true },
+    }),
     prisma.syncEntity.groupBy({ by: ["storeId"], _max: { syncedAt: true } }),
   ]);
 
   const lastDevice = new Map(deviceMax.map((r) => [r.storeId, r._max.lastSeenAt]));
+  const activeDeviceCount = new Map(deviceMax.map((r) => [r.storeId, r._count._all]));
   const lastSync = new Map(syncMax.map((r) => [r.storeId, r._max.syncedAt]));
 
   return (
@@ -70,7 +76,7 @@ async function StoresTable() {
                       {s.status === "ACTIVE" ? "Aktif" : "Ditangguhkan"}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-zinc-300">{s._count.devices}</td>
+                  <td className="px-4 py-3 text-zinc-300">{activeDeviceCount.get(s.id) ?? 0}</td>
                   <td className="px-4 py-3 text-zinc-400">{formatDateTime(lastDevice.get(s.id) ?? null)}</td>
                   <td className="px-4 py-3 text-zinc-400">{formatDateTime(lastSync.get(s.id) ?? null)}</td>
                 </tr>
