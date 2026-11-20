@@ -92,6 +92,10 @@ model Store {
   ownerId               String
   status                StoreStatus @default(ACTIVE)
   accessManagementEnabled Boolean   @default(false)
+  businessType          String?
+  monthlyRevenue        String?
+  mainProblem           String?
+  onboardingCompletedAt DateTime?
   lastDeviceChangeAt    DateTime?
   createdAt             DateTime    @default(now())
   updatedAt             DateTime    @updatedAt
